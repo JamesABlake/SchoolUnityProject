@@ -5,51 +5,62 @@ using UnityEngine;
 public class Station : MonoBehaviour {
 	public float RotationSpeed = 1.0f;
 	public StationMenu StationMenuPrefab;
+	public StationPreMenu StationPreMenuPrefab;
 
-	private PlayerMovement player;
-	private Rigidbody2D body;
-	private List<Quest> quests = new();
-	private StationMenu stationMenu;
+	private PlayerController _player;
+	private Rigidbody2D _body;
+	private StationMenu _stationMenu;
+	private StationPreMenu _stationPreMenu;
 
-	void Start() {
-		body = GetComponent<Rigidbody2D>();
-		body.angularVelocity = RotationSpeed;
+	[SerializeField] List<Questline> _questlines = new();
+
+	void Awake() {
+		_body = GetComponent<Rigidbody2D>();
+		_body.angularVelocity = RotationSpeed;
+
+		List<Questline> questlines = new();
+		foreach(var questline in _questlines)
+			questlines.Add(Instantiate(questline));
+		_questlines = questlines;
 	}
 
-
 	void Update() {
-		if(player && Input.GetKeyDown(KeyCode.F)) {
-			if(!stationMenu) {
-				stationMenu = Instantiate(StationMenuPrefab);
-				stationMenu.Initialize(this);
-				stationMenu.Open();
+		if(!_stationMenu && _player) {
+			if(!_stationPreMenu) {
+				_stationPreMenu = Instantiate(StationPreMenuPrefab);
+				_stationPreMenu.Open();
+			}
+		}
+		else if(_stationPreMenu)
+			_stationPreMenu.Close();
+
+		if(_player && Input.GetKeyDown(KeyCode.F) && GameplayManager.AllowInput) {
+			if(!_stationMenu) {
+				_stationMenu = Instantiate(StationMenuPrefab);
+				_stationMenu.Initialize(this);
+				_stationMenu.Open();
 			}
 			else {
-				stationMenu.Toggle();
+				_stationMenu.Toggle();
 			}
 		}
 
 	}
 
 	private void OnTriggerEnter2D(Collider2D collision) {
-		var player = collision.GetComponentInParent<PlayerMovement>();
+		var player = collision.GetComponentInParent<PlayerController>();
 		if(player)
-			this.player = player;
+			this._player = player;
 	}
 
 	private void OnTriggerExit2D(Collider2D collision) {
-		var player = collision.GetComponentInParent<PlayerMovement>();
+		var player = collision.GetComponentInParent<PlayerController>();
 		if(player) {
-			if(stationMenu)
-				stationMenu.Close();
-			this.player = null;
+			if(_stationMenu)
+				_stationMenu.Close();
+			this._player = null;
 		}
 	}
 
-	private void OnGUI() {
-		if(stationMenu || !player)
-			return;
-
-		GUILayout.Label("Press F to Interact");
-	}
+	public List<Questline> Questlines => _questlines;
 }

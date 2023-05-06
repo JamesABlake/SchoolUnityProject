@@ -1,119 +1,98 @@
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.Tilemaps;
 
+[RequireComponent(typeof(C_Health))]
+[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(C_Storage))]
 public class Spaceship : MonoBehaviour {
-	public float Speed = 100f;
-	public float Torque = 100f;
+	public Vector2 Position => _rigidbody.position;
+	public float Rotation => _rigidbody.rotation;
 
-	public PlayerMovement player;
-	public Hull hull;
-	public GameObject LaserPrefab;
-	public float LaserLength = 50f;
-	public Dictionary<Minerals, int> minerals = new();
+	[SerializeField]
+	private float _baseAcceleration = 4f;
+	[SerializeField]
+	private float _baseAngularAcceleration = 10f;
 
-	private Rigidbody2D rigid;
-	private TilemapCollider2D hullCollider;
-	private List<LineRenderer> lineRenderers = new();
-	private Vector2? laserPosition;
-	private bool needToDisableLaser = false;
+	private Vector2 _lastVelocity;
+	private Vector2 _acceleration;
 
-	void Start() {
-		rigid = GetComponent<Rigidbody2D>();
-		hull = GetComponentInChildren<Hull>();
-		hullCollider = GetComponentInChildren<TilemapCollider2D>();
-		player = GetComponent<PlayerMovement>();
-		int lasers = hull.GetCount<WeaponTile>();
+	public Vector2 Acceleration => _acceleration;
 
-		for(int i = 0; i < lasers; i++) {
-			GameObject gameObject = Instantiate(LaserPrefab, transform);
-			lineRenderers.Add(gameObject.GetComponent<LineRenderer>());
-		}
-
-		hull.CenterLocally();
-		rigid.useAutoMass = false;
+	private Hull _hull;
+	public C_Storage Storage {
+		get; private set;
 	}
 
+	private Rigidbody2D _rigidbody;
+	private float _originalMass;
+	private float _originalInteria;
 
-	private void Update() {
-		if(!EventSystem.current.IsPointerOverGameObject())
-			if(Input.GetMouseButton(0)) {
-				laserPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-			}
-		DrawLaser();
+	void Awake() {
+		_hull = this.GetComponentInHeiarchy<Hull>();
+		Storage = this.GetComponentInHeiarchy<C_Storage>();
+		_rigidbody = this.GetComponentInHeiarchy<Rigidbody2D>();
+	}
+
+	private void Start() {
+		_originalMass = _rigidbody.mass;
+		_originalInteria = _rigidbody.inertia;
+		_hull.CenterLocally();
+		_rigidbody.useAutoMass = false;
+	}
+
+	private void FixedUpdate() {
+		_acceleration = _rigidbody.velocity - _lastVelocity;
+		_lastVelocity = _rigidbody.velocity;
 		UpdateMass();
+
+		if(_rigidbody.velocity.magnitude < 0.01f)
+			_rigidbody.velocity = Vector2.zero;
+
+		if(Mathf.Abs(_rigidbody.angularVelocity) < 0.01)
+			_rigidbody.angularVelocity = 0;
+
+		transform.position = Vector2.ClampMagnitude(transform.position, GameplayManager.WorldSize);
 	}
 
 	void UpdateMass() {
-		rigid.mass = hull.Mass + minerals.Values.Sum();
+		_rigidbody.mass = _hull.Mass + Storage.GetWeight();
 	}
 
-
-	void FixedUpdate() {
-		var desiredMovement = transform.rotation * player.DesiredMovement;
-		var desiredYaw = player.DesiredYaw;
-		player.DesiredMovement = Vector2.zero;
-		player.DesiredYaw = 0;
-
-
-		foreach(var rcs in hull.GetTiles<RCSTile>().Concat(hull.GetTiles<ThrusterTile>())) {
-			var dir = RCSTile.GetWorldDirection(hull, rcs);
-			var localDir = RCSTile.GetLocalDirection(hull, rcs);
-			var centerOfMass = hull.WorldToLocal(rigid.worldCenterOfMass);
-			var yawForce = Vector3.zero;
-			if(desiredYaw != 0) {
-				var isAbove = (centerOfMass.y < rcs.y ? -1 : 1);
-				yawForce = Mathf.Clamp01(Vector2.Dot(isAbove * localDir, Vector2.left * desiredYaw)) * dir;
-			}
-			var force = Mathf.Clamp01(Vector2.Dot(dir, desiredMovement)) * dir;
-			var pos = hull.CellToWorld(rcs);
-			Debug.DrawLine(pos, pos - (force + yawForce).normalized * Speed, Color.red);
-			rigid.AddForceAtPosition((force + yawForce).normalized * Speed, pos);
-		}
-
-		transform.position = Vector3.ClampMagnitude(transform.position, GameManager.WorldSize);
+	#region Movement
+	public void Rotate(float yaw) {
+		_rigidbody.AddTorque(yaw * _originalInteria * _baseAngularAcceleration);
 	}
 
-	private void DrawLaser() {
-		if(laserPosition.HasValue) {
-			needToDisableLaser = true;
-			int index = 0;
-			foreach(var position in hull.GetTiles<WeaponTile>()) {
-				var startPos = (Vector2)hull.CellToWorld(position);
-
-				var laser = lineRenderers[index++];
-				laser.enabled = true;
-				laser.SetPosition(0, startPos);
-				int mask = LayerMask.NameToLayer("Ship");
-				RaycastHit2D hit = Physics2D.Raycast(startPos, laserPosition.Value - startPos, LaserLength, mask);
-				if(hit.collider != null) {
-					laser.SetPosition(1, startPos + (laserPosition.Value - startPos).normalized * hit.distance);
-					var asteroid = hit.collider.gameObject.GetComponent<Asteroid>();
-					if(asteroid) {
-						if(asteroid.TakeDamage(Time.deltaTime * 10, out var result))
-							foreach(var item in result) {
-								if(minerals.ContainsKey(item.Key))
-									minerals[item.Key] += item.Value;
-								else
-									minerals.Add(item.Key, item.Value);
-							}
-						Debug.Log($"Asteroid has {asteroid.Health} Health and ({string.Join(", ", asteroid._minerals)}) minerals");
-					}
-				}
-				else {
-					laser.SetPosition(1, startPos + (laserPosition.Value - startPos).normalized * LaserLength);
-				}
-
-			}
-			laserPosition = null;
-		}
-		else if(needToDisableLaser) {
-			foreach(var lineRenderer in lineRenderers) {
-				lineRenderer.enabled = false;
-			}
-		}
-
+	public void Accelerate(Vector2 direction) {
+		_rigidbody.AddForce(_originalMass * _baseAcceleration * direction);
 	}
+
+	public void RotateTowards(float degree) {
+		float delta = Mathf.Clamp(Mathf.DeltaAngle(_rigidbody.rotation, degree) - _rigidbody.angularVelocity, -1, 1);
+		float torque = delta * _originalInteria * _baseAngularAcceleration;
+		_rigidbody.AddTorque(torque);
+	}
+	public void MoveTowards(Vector2 worldPosition) {
+		Vector2 delta = (worldPosition - _rigidbody.position) - _rigidbody.velocity;
+		Vector2 force = _originalMass * _baseAcceleration * (delta.normalized.sqrMagnitude < delta.sqrMagnitude ? delta.normalized : delta);
+		_rigidbody.AddForce(force);
+	}
+
+	public void RotateTowardsLocal(float degree) {
+		_rigidbody.AddTorque(_originalInteria * Mathf.Clamp(degree, -1, 1));
+	}
+	public void MoveTowardsLocal(Vector2 direction) {
+		_rigidbody.AddForce(_originalMass * _baseAcceleration * direction.normalized);
+	}
+
+	#endregion
+
+
+	#region Laser
+	public void FireTowards(Vector2 position) {
+		foreach(var tile in _hull.GetTiles<WeaponTile>()) {
+			var laser = _hull.GetTileGameObject<C_LaserBeam>(tile);
+			laser.FireTowards(position);
+		}
+	}
+	#endregion
 }

@@ -19,11 +19,18 @@ public class Hull : MonoBehaviour {
 	private void Awake() {
 		_tilemap = GetComponent<Tilemap>();
 		foreach(var (pos, tile) in GetTiles()) {
-			_tiles.Add(pos, (tile, _tilemap.GetTransformMatrix(pos)));
+			var matrix = _tilemap.GetTransformMatrix(pos);
+			_tiles.Add(pos, (tile, matrix));
 			if(_tilesByType.TryGetValue(tile.GetType(), out var list))
 				list.Add(pos);
 			else
 				_tilesByType.Add(tile.GetType(), new List<Vector3Int>() { pos });
+
+			GameObject tileObject = _tilemap.GetInstantiatedObject(pos);
+			if(tileObject) {
+				tileObject.transform.rotation = matrix.rotation;
+			}
+
 		}
 	}
 
@@ -35,6 +42,9 @@ public class Hull : MonoBehaviour {
 
 		transform.localPosition = (-center / _tiles.Count) - _offset;
 	}
+
+	public GameObject GetTileGameObject(Vector3Int position) => _tilemap.GetInstantiatedObject(position);
+	public T GetTileGameObject<T>(Vector3Int position) => _tilemap.GetInstantiatedObject(position).GetComponent<T>();
 
 	public Matrix4x4 GetTransform(Vector3Int position) => _tiles[position].transform;
 	public Vector3 WorldToLocal(Vector3 worldPosition) => _tilemap.WorldToLocal(worldPosition);

@@ -4,7 +4,9 @@
 TagManager:
   serializedVersion: 2
   tags:
-  - Canvas
+  - Main Station
+  - MainCanvas
+  - MusicManager
   layers:
   - Default
   - TransparentFX
@@ -12,12 +14,12 @@ TagManager:
   - 
   - Water
   - UI
-  - Ship
-  - 
-  - 
-  - 
-  - 
-  - 
+  - Player
+  - DetectPlayer
+  - Enemy
+  - DetectEnemy
+  - Mineral
+  - DetectMineral
   - 
   - 
   - 

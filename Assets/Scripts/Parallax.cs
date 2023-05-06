@@ -17,7 +17,7 @@ public class Parallax : MonoBehaviour {
 	void Update() {
 		Vector3 camPos = Camera.main.transform.position;
 		Vector3 cameraSize = new(Camera.main.orthographicSize * 2 * Screen.width / Screen.height, Camera.main.orthographicSize * 2, 0);
-		Vector3 newPos = camPos - Vector3.Scale((rend.bounds.size - cameraSize), camPos / (2 * GameManager.WorldSize));
+		Vector3 newPos = camPos - Vector3.Scale((rend.bounds.size - cameraSize), camPos / (2 * GameplayManager.WorldSize));
 		newPos.z = ZLevel.Value;
 		transform.position = newPos;
 	}

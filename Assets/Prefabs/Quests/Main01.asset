@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08e4fb47b1c03524d86c2407fda1d349, type: 3}
+  m_Name: Main01
+  m_EditorClassIdentifier: 
+  _name: Water needed for Hydroponics!
+  _description: Lets start off with an easy job. Hydroponics could use some more
+    water. Look around the area, the asteroids close by should contain some. Once
+    you collect enough, bring them back!
+  _reward: 100
+  _minerals:
+    list:
+    - Key: 5
+      Value:
+        Collected: 0
+        Wanted: 50
+    keyCollision: 0
